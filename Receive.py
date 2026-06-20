@@ -49,17 +49,24 @@ def main():
         conn, addr = server.accept()
         console.print(f"[bold green][✓][/bold green] Connected to sender at [yellow]{addr[0]}[/yellow]\n")
 
-        # Read metadata
-        metadata = conn.recv(1024).decode('utf-8').strip()
+        # FIX: Read EXACTLY 1024 bytes for metadata to isolate it from the raw stream
+        metadata_bytes = b""
+        while len(metadata_bytes) < 1024:
+            chunk = conn.recv(1024 - len(metadata_bytes))
+            if not chunk:
+                break
+            metadata_bytes += chunk
+
+        metadata = metadata_bytes.decode('utf-8').strip()
         if not metadata or "|" not in metadata:
-            console.print("[bold red][!] Invalid metadata received.[/bold red]")
+            console.print("[bold red][!] Invalid metadata structure received.[/bold red]")
             return
         
         filename, filesize = metadata.split("|")
         filesize = int(filesize)
         output_filename = f"received_{os.path.basename(filename)}"
         
-        # Stream file
+        # Stream file data
         with open(output_filename, "wb") as f:
             with Progress(
                 SpinnerColumn(),
@@ -83,7 +90,6 @@ def main():
 
         console.print(f"\n[bold green][✓] Success![/bold green] Saved as: [yellow]{output_filename}[/yellow]")
         
-        # OS Desktop Notification
         notification.notify(
             title="File Transfer Complete",
             message=f"Successfully received: {output_filename}",
