@@ -1,5 +1,6 @@
 import os
 import socket
+import time
 from plyer import notification
 from rich.console import Console
 from rich.panel import Panel
@@ -38,11 +39,14 @@ def main():
         client.connect((host, port))
         console.print("[bold green][✓] Connected. Starting stream...[/bold green]\n")
 
-        # Send file details
+        # FIX: Force exact 1024 byte layout padded with spaces
         metadata = f"{filename}|{filesize}"
         client.sendall(metadata.encode('utf-8').ljust(1024))
+        
+        # Give network stack a momentary pause to flush metadata out of buffer
+        time.sleep(0.1)
 
-        # Stream file
+        # Stream file data
         with open(filepath, "rb") as f:
             with Progress(
                 SpinnerColumn(),
@@ -63,7 +67,6 @@ def main():
 
         console.print("\n[bold green][✓] File sent successfully![/bold green]")
         
-        # OS Desktop Notification
         notification.notify(
             title="File Transfer Complete",
             message=f"Successfully sent: {filename}",
